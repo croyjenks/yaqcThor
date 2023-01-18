@@ -6,8 +6,34 @@ __version__ = '0.1.0'
 Tools to aid in the orchestration of experiments.
 """
 
+import tomli
 from time import sleep
 import numpy as np
+
+def get_config_values(daemon):
+    """
+    Get a daemon's configuration as a dictionary by parsing it as a TOML string.
+
+    Argumens
+    --------
+    daemon : yaqc.Client - The daemon to retrieve the configuration of.
+
+    Returns
+    -------
+    values : dict or None - The configuration. Returns None if the string could not be parsed as TOML code.
+    """
+    config = daemon.get_config()
+    #passthrough if it's already a dictionary
+    if isinstance(config, dict):
+        return config
+
+    elif isinstance(config, str):    
+        try:
+            values = tomli.loads(config)
+            return values
+        except tomli.TOMLDecodeError:
+            print(f"Unable to retrieve configuration values for daemon {daemon.name}.")
+            return None
 
 def prompt_for_action(prompt_message, proceed_prompt=None, wait_time_s=3) -> None:
     """

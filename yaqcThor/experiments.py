@@ -3,15 +3,20 @@ __author__ = "Chris R. Roy, Song Jin and John C. Wright Research Groups, Dept. o
 __version__ = '0.1.0'
 
 """
-Predefined experiment scripts for the PL microscope.
+Pre-packaged experiment orchestration scripts for the PL microscope.
 """
 
 import numpy as np
 from time import sleep
 from datetime import date, datetime
 import WrightTools as wt
-from helpers import waitfor, prompt_for_action, prompt_for_value
-import constants
+from .helpers import (
+    waitfor, 
+    prompt_for_action, 
+    prompt_for_value, 
+    get_config_values
+    )
+from . import constants
 
 def monitor_power(pm, duration, pm_samples=5, filepath=None, name=None):
     """
@@ -31,7 +36,8 @@ def monitor_power(pm, duration, pm_samples=5, filepath=None, name=None):
     -------
     None - Generates a WrightTools Data object for the measurement and saves it to the specified file path.
     """
-    sample_duration = pm.get_conifg()['averaging']*0.01
+    pm_config = get_config_values(pm)
+    sample_duration = pm_config['averaging']*0.01
     cycle_time = sample_duration*pm_samples
 
     time, power_out = np.zeros(int(duration/cycle_time)+1), np.zeros(int(duration/cycle_time)+1)
@@ -67,8 +73,8 @@ def monitor_power(pm, duration, pm_samples=5, filepath=None, name=None):
     out['t'].attrs['label'] = "time (s)"
     out.create_channel('power', values=power_out, units='W')
     out['power'].attrs['label'] = "power (W)"
-    out.attrs['meter averaging'] = pm.get_config()['averaging']
     out.attrs['start time'] = start
+    out.attrs.update(pm_config)
     out.transform('t')
     out.save(filepath=filepath)
 
@@ -99,11 +105,11 @@ def PLE_spectrum(opo, camera, start, stop, step,
         Saves each to the specified directory.
     """
     #get camera configuration
-    andor_config = camera.get_config()
+    andor_config = get_config_values(camera)
 
     #get microscope configuration with help from user
     magnification = prompt_for_value("Enter objective lens magnification: ",
-                        {mag for mag in constants.OBJECTIVE_CALIBRATION_SCALES.keys()})
+                        {mag for mag in constants.OBJECTIVE_CALIBRATION_SCALES})
     if magnification is not None:
         scale = constants.OBJECTIVE_CALIBRATION_SCALES[magnification]
         units, unit_label = 'um', "(µm)"
@@ -113,7 +119,7 @@ def PLE_spectrum(opo, camera, start, stop, step,
 
     #get power meter configuration and check for timeout (if in use)
     if pm is not None:
-        pm_config = pm.get_config()
+        pm_config = get_config_values(pm)
         sample_duration = pm_config()['averaging']*0.01
         cycle_time = sample_duration*pm_samples
         P = np.zeros((wls.size, (camera.get_exposure_time()/cycle_time)*10))
@@ -124,7 +130,8 @@ def PLE_spectrum(opo, camera, start, stop, step,
             pm_timeout = False
 
     #define measurement parameters
-    wls = np.arange(*[start,stop].sort(), step=step)[:,None,None]
+    start, stop = sorted([start, stop])
+    wls = np.arange(start, stop, step)[:,None,None]
     if np.min(wls)<420 or np.max(wls)<700:
         raise ValueError("Scan range is beyond bounds of the OPO. Valid wavelengths are from 420-700 nm.")
     x, y = np.arange(andor_config['aoi_width'])[None,:,None]*scale, np.arange(andor_config['aoi_height'])[None,None,:]*scale
@@ -242,8 +249,8 @@ def tuning_curve(opo, pm, start, stop, step, pm_samples=100, name=None, filepath
     """
     #get power meter configuration and check for timeout
     if pm is not None:
-        pm_config = pm.get_config()
-        sample_duration = pm_config['averaging']*0.01
+        pm_config = get_config_values(pm)
+        sample_duration = int(pm_config['averaging'])*0.01
         cycle_time = sample_duration*pm_samples
         if not pm.busy():
             pm_timeout = False
@@ -252,8 +259,9 @@ def tuning_curve(opo, pm, start, stop, step, pm_samples=100, name=None, filepath
             return        
 
     #define measurement parameters
-    wls = np.arange(*[start,stop].sort(), step=step)
-    if np.min(wls)<420 or np.max(wls)<700:
+    start, stop = sorted([start, stop])
+    wls = np.arange(start, stop, step)
+    if np.min(wls)<420 or np.max(wls)>700:
         raise ValueError("Scan range is beyond bounds of the OPO. Valid wavelengths are from 420-700 nm.")
 
     #get dark counts
@@ -312,4 +320,5 @@ def tuning_curve(opo, pm, start, stop, step, pm_samples=100, name=None, filepath
     out['std'].attrs['label'] = "σ (W)"
     out.transform('wl')
     out.attrs['dark reading'] = k
+    out.attrs.update(pm_config)
     out.save(filepath=filepath)
