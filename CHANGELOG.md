@@ -13,7 +13,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
-- `experiments.PLE_spectrum` and `experiments.tuning_curve` now sort arguments `(start, stop)` for the OPO scan range. This avoids generating an empty array of scan points if the scan bounds are entered out of order.
+- `experiments.PLE_spectrum` and `experiments.tuning_curve` now sort arguments `(start, stop)` for the OPO scan range. This avoids generating an empty array of scan points if the bounds are entered out of order.
 
 ## [0.0.0] - 2022-12-21
 
