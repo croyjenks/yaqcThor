@@ -12,9 +12,3 @@ GRATING_WINDOWS_NM = {
     '150' : 360,
     '1200' : 45
 }
-
-OBJECTIVE_CALIBRATION_SCALES = { #scales in pixels/um
-    '5' : 0.893,
-    '20' : 3.52,
-    '100' : 18.2
-}

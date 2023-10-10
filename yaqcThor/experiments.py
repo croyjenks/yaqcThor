@@ -107,16 +107,6 @@ def PLE_spectrum(opo, camera, start, stop, step,
     #get camera configuration
     andor_config = get_config_values(camera)
 
-    #get microscope configuration with help from user
-    magnification = prompt_for_value("Enter objective lens magnification: ",
-                        {mag for mag in constants.OBJECTIVE_CALIBRATION_SCALES})
-    if magnification is not None:
-        scale = constants.OBJECTIVE_CALIBRATION_SCALES[magnification]
-        units, unit_label = 'um', "(µm)"
-    else:
-        scale = 1
-        units, unit_label = None, "pixel"
-
     #get power meter configuration and check for timeout (if in use)
     if pm is not None:
         pm_config = get_config_values(pm)
@@ -132,10 +122,10 @@ def PLE_spectrum(opo, camera, start, stop, step,
     #define measurement parameters
     start, stop = sorted([start, stop])
     wls = np.arange(start, stop, step)[:,None,None]
-    if np.min(wls)<420 or np.max(wls)<700:
+    if np.min(wls)<420 or np.max(wls)>700:
         raise ValueError("Scan range is beyond bounds of the OPO. Valid wavelengths are from 420-700 nm.")
-    x, y = np.arange(andor_config['aoi_width'])[None,:,None]*scale, np.arange(andor_config['aoi_height'])[None,None,:]*scale
-    sig = np.zeros((x.size, y.size, wls.size))
+    x, y = np.arange(andor_config['aoi_width'])[None,:,None], np.arange(andor_config['aoi_height'])[None,None,:]
+    sig = np.zeros((wls.size, x.size, y.size))
 
     #measure dark counts with help from user
     prompt_for_action("Shutter beam to measure dark counts")
@@ -152,7 +142,7 @@ def PLE_spectrum(opo, camera, start, stop, step,
 
     #measure a PLE spectrum with power readings in tandem
     print("Measuring excitation spectrum...")
-    for wl_idx, wl in enumerate(wls):
+    for wl_idx, wl in enumerate(wls.flatten()):
         #reposiiton OPO and begin acquiring next data point
         opo.set_position(wl)
         waitfor(opo)
@@ -188,13 +178,13 @@ def PLE_spectrum(opo, camera, start, stop, step,
 
     data = wt.Data(name=spectrum_name)
     data.create_variable('wl', values=wls, units='nm')
-    data.create_variable('x', values=x, units=units)
-    data.create_variable('y', values=y, units=units)
+    data.create_variable('xindex', values=x)
+    data.create_variable('yindex', values=y)
     data['wl'].attrs['label'] = "excitation wavelength (nm)"
-    data['x'].attrs['label'] = f'x {unit_label}'
-    data['y'].attrs['label'] = f'y {unit_label}'
-    data.create_channel('sig', values=sig)
-    data['sig'].attrs['label'] = "sensor counts"
+    data['xindex'].attrs['label'] = f'x pixel'
+    data['yindex'].attrs['label'] = f'y pixel'
+    data.create_channel('signal', values=sig)
+    data['signal'].attrs['label'] = "counts"
 
     data.attrs['dark counts'] = frame_dark
     data.attrs["exposure time"] = (camera.get_exposure_time(), 's')
@@ -202,7 +192,7 @@ def PLE_spectrum(opo, camera, start, stop, step,
     data.attrs["shuttering mode"] = camera.get_electronic_shuttering_mode()
     data.attrs.update(andor_config)
 
-    data.transform('wl','x','y')
+    data.transform('wl','xindex','yindex')
     data.save(filepath=filepath)
 
     if pm is not None:

@@ -144,7 +144,7 @@ def waitfor(daemon, time_limit_s=-1) -> bool or None:
     while daemon.busy() and not timed_out:
         sleep(0.001)
         timer+=0.001
-        if timer>time_limit_s:
+        if time_limit_s>0 and timer>time_limit_s:
             timed_out = True
     
     if time_limit_s>0:
