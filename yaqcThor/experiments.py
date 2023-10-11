@@ -138,6 +138,7 @@ def PLE_spectrum(opo, camera, start, stop, step,
         P_dark = pm.get_measured()
     waitfor(camera)
     frame_dark = camera.get_measured()
+    frame_dark = frame_dark['image']
     prompt_for_action("Unshutter the beam")
 
     #measure a PLE spectrum with power readings in tandem
@@ -175,6 +176,9 @@ def PLE_spectrum(opo, camera, start, stop, step,
     if name is None:
         spectrum_name = f'PLE-raw-images_{date.today()}'
         power_name = f'PLE-power-readings_{date.today()}'
+    else:
+        spectrum_name = name
+        power_name = f'{name}-power-readings'
 
     data = wt.Data(name=spectrum_name)
     data.create_variable('wl', values=wls, units='nm')
@@ -208,7 +212,7 @@ def PLE_spectrum(opo, camera, start, stop, step,
         power_data['labtime'].attrs['label'] = "exposure time (s)"
         power_data['power'].attrs['label'] = "power (W)"
 
-        power_data.atrs['dark reading'] = P_dark['power']
+        power_data.attrs['dark reading'] = P_dark['power']
         power_data.attrs.update(pm_config)
 
         power_data.transform('wl', 'idx')
